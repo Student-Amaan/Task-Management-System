@@ -2,11 +2,11 @@ const Task = require("../models/TaskModels");
 
 const createTask = async (req, res) => {
   try {
-    const { title, description, priority , status } = req.body;
+    const { title, description, priority, status } = req.body;
     const task = await Task.create({
       title: title,
       description: description,
-      status : status,
+      status: status,
       priority: priority,
     });
 
@@ -28,44 +28,94 @@ const createTask = async (req, res) => {
   }
 };
 
-const getAlltasks = async (req ,res) => {
+const getAlltasks = async (req, res) => {
   try {
-    const getTask = await Task.find()
+    const getTask = await Task.find();
     res.status(200).json({
-      sucess : true,
-      message : "task fetch successfully",
-      tasks : getTask
-    })
+      sucess: true,
+      message: "task fetch successfully",
+      tasks: getTask,
+    });
   } catch (error) {
     res.status(500).json({
-      success : false,
-      message : "internal server error",
-      error : error.message
-    })
+      success: false,
+      message: "internal server error",
+      error: error.message,
+    });
   }
-}
+};
 
-
-const getTaskById = async (req ,res) => {
+const getTaskById = async (req, res) => {
   try {
-    const getTaskId = await Task.findById(req.params.id)
-    if(!getTaskId){
+    const getTaskId = await Task.findById(req.params.id);
+    if (!getTaskId) {
       return res.status(404).json({
-        success : false ,
-        message : "user not found"
+        success: false,
+        message: "user not found",
+      });
+    }
+    res.status(200).json({
+      success: true,
+      message: "User found sucessfully",
+      task: getTaskId,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "get task by id is fail",
+      error: error.message,
+    });
+  }
+};
+
+const updateTask = async (req, res) => {
+  try {
+    const updateTaskId = await Task.findByIdAndUpdate(req.params.id, req.body, {
+      new: true,
+    });
+    if (!updateTaskId) {
+      res.status(404).json({
+        success: false,
+        message: "Task not found",
+      });
+    }
+    res.status(200).json({
+      message: "task updated sucessfully",
+      task: updateTaskId,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "task not updated",
+      error: error.message,
+    });
+  }
+};
+
+const deleteTaskId = async(req , res) => {
+  try {
+    const deleteTask =  await Task.findByIdAndDelete(req.params.id)
+    if(!deleteTask){
+      return res.status(404).json({
+        success : false,
+        message : "Task not found"
       })
     }
     res.status(200).json({
       success : true,
-      message : "User found sucessfully",
-      task : getTaskId
+      message : "Task successfully deleted",
+
     })
   } catch (error) {
     res.status(500).json({
-      message : "get task by id is fail",
+      message : "Task not deleted there is some error",
       error : error.message
     })
   }
 }
 
-module.exports = { createTask , getAlltasks , getTaskById};
+module.exports = {
+  createTask,
+  getAlltasks,
+  getTaskById,
+  updateTask,
+  deleteTaskId,
+};
