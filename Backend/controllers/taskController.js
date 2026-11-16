@@ -1,6 +1,6 @@
 const Task = require("../models/TaskModels");
 const AppError = require("../utils/AppError");
-
+const asyncHandler = require("express-async-handler");
 
 const createTask = async (req, res) => {
   try {
@@ -13,9 +13,7 @@ const createTask = async (req, res) => {
     });
 
     if (!task) {
-      return res
-        .status(400)
-        .json({ message: "please enter a valid information" });
+      throw new AppError("Please enter a valid information", 400);
     }
 
     res.status(201).json({
@@ -30,97 +28,76 @@ const createTask = async (req, res) => {
   }
 };
 
-const getAlltasks = async (req, res) => {
-  try {
-    const { status, sort } = req.query;
-    let filter = {};
-    if (status) {
-      filter.status = status;
-    }
+const getAllTasks = asyncHandler(async (req, res) => {
+  // 1. Search and Filtering
+  const { status, sort } = req.query;
 
-    let sortAt = {};
+  let filter = {};
 
-    if (sort === "oldest") {
-      sortAt.createdAt = 1;
-    } else {
-      sortAt.createdAt = -1;
-    }
-
-    // pegination
-
-    const page = Number(req.query.page) || 1;
-    const limit = Number(req.query.limit) || 5;
-
-    const skip = (page - 1) * limit;
-
-    const getTask = await Task.find(filter)
-      .sort(sortAt)
-      .skip(skip)
-      .limit(limit);
-
-      const totalTasks = await Task.countDocuments(filter)
-
-    res.status(200).json({
-      sucess: true,
-      message: "task fetch successfully",
-      count: getTask.length,
-      currentPage: page,
-      totalPages: Math.ceil(totalTasks / limit),
-      tasks: getTask,
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "internal server error",
-      error: error.message,
-    });
+  if (status) {
+    filter.status = status;
   }
-};
 
-const getTaskById = async (req, res) => {
-  try {
-    const getTaskId = await Task.findById(req.params.id);
-    if (!getTaskId) {
-      return res.status(404).json({
-        success: false,
-        message: "user not found",
-      });
-    }
-    res.status(200).json({
-      success: true,
-      message: "User found sucessfully",
-      task: getTaskId,
-    });
-  } catch (error) {
-    res.status(500).json({
-      message: "get task by id is fail",
-      error: error.message,
-    });
-  }
-};
+  // 2. Sorting
+  let sortAt = {};
 
-const updateTask = async (req, res) => {
-  try {
-    const updateTaskId = await Task.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-    });
-    if (!updateTaskId) {
-      res.status(404).json({
-        success: false,
-        message: "Task not found",
-      });
-    }
-    res.status(200).json({
-      message: "task updated sucessfully",
-      task: updateTaskId,
-    });
-  } catch (error) {
-    res.status(500).json({
-      message: "task not updated",
-      error: error.message,
-    });
+  if (sort === "oldest") {
+    sortAt.createdAt = 1;
+  } else {
+    sortAt.createdAt = -1;
   }
-};
+
+  // 3. Pagination
+  const page = Number(req.query.page) || 1;
+  const limit = Number(req.query.limit) || 5;
+
+  const skip = (page - 1) * limit;
+
+  // 4. Get Tasks
+  const getTask = await Task.find(filter).sort(sortAt).skip(skip).limit(limit);
+
+  // 5. Count Total Tasks
+  const totalTasks = await Task.countDocuments(filter);
+
+  // 6. Response
+  res.status(200).json({
+    success: true,
+    message: "Tasks fetched successfully",
+    count: getTask.length,
+    currentPage: page,
+    totalPages: Math.ceil(totalTasks / limit),
+    totalTasks,
+    tasks: getTask,
+  });
+});
+
+const getTaskById = asyncHandler(async (req, res) => {
+  const task = await Task.findById(req.params.id);
+
+  if (!task) {
+    throw new AppError("Task not found", 404);
+  }
+
+  res.status(200).json({
+    success: true,
+    message: "Task found successfully",
+    task,
+  });
+});
+
+const updateTask = asyncHandler(async (req, res) => {
+  const updateTaskId = await Task.findByIdAndUpdate(req.params.id, req.body, {
+    new: true,
+    runValidators: true,
+  });
+  if (!updateTaskId) {
+    throw new AppError("task not updated", 404);
+  }
+  res.status(200).json({
+    message: "task updated sucessfully",
+    task: updateTaskId,
+  });
+});
 
 const deleteTaskId = async (req, res) => {
   try {
@@ -145,7 +122,7 @@ const deleteTaskId = async (req, res) => {
 
 module.exports = {
   createTask,
-  getAlltasks,
+  getAllTasks,
   getTaskById,
   updateTask,
   deleteTaskId,

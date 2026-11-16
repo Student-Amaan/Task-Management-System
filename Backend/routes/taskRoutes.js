@@ -1,7 +1,7 @@
 const express = require("express")
 const {
   createTask,
-  getAlltasks,
+  getAllTasks,
   getTaskById,
   updateTask,
   deleteTaskId,
@@ -10,7 +10,7 @@ const {
 const router = express.Router()
 
 router.post("/task", createTask)
-router.get("/" , getAlltasks)
+router.get("/" , getAllTasks)
 router.get("/:id", getTaskById)
 router.put("/:id", updateTask);
 router.delete("/:id" , deleteTaskId)
