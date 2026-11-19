@@ -7,6 +7,7 @@ const express = require("express");
 const TaskRoute = require("./routes/taskRoutes");
 const connectDB = require("./config/db");
 const errorMiddleware = require("./middleware/errorMiddlewares");
+const userRoute = require('./routes/user.Routes')
 
 
 
@@ -20,6 +21,8 @@ connectDB();
 app.use(express.json());
 
 app.use("/api/tasks", TaskRoute);
+
+app.use("/api/users", userRoute)
 
 
 

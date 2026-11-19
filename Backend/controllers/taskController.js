@@ -2,31 +2,28 @@ const Task = require("../models/TaskModels");
 const AppError = require("../utils/AppError");
 const asyncHandler = require("express-async-handler");
 
-const createTask = async (req, res) => {
-  try {
-    const { title, description, priority, status } = req.body;
-    const task = await Task.create({
-      title: title,
-      description: description,
-      status: status,
-      priority: priority,
-    });
 
-    if (!task) {
-      throw new AppError("Please enter a valid information", 400);
-    }
+const createTask = asyncHandler(async (req, res) => {
+  const { title, description, priority, status } = req.body;
 
-    res.status(201).json({
-      message: "task created sucessfully",
-      task,
-    });
-  } catch (error) {
-    res.status(500).json({
-      message: "Create Internal server error",
-      error: error.message,
-    });
+  if (!title) {
+    throw new AppError("Title is required", 400);
   }
-};
+
+  const task = await Task.create({
+    title,
+    description,
+    priority,
+    status,
+  });
+
+  res.status(201).json({
+    success: true,
+    message: "Task created successfully",
+    task,
+  });
+});
+
 
 const getAllTasks = asyncHandler(async (req, res) => {
   // 1. Search and Filtering
@@ -99,26 +96,21 @@ const updateTask = asyncHandler(async (req, res) => {
   });
 });
 
-const deleteTaskId = async (req, res) => {
-  try {
-    const deleteTask = await Task.findByIdAndDelete(req.params.id);
-    if (!deleteTask) {
-      return res.status(404).json({
-        success: false,
-        message: "Task not found",
-      });
-    }
-    res.status(200).json({
-      success: true,
-      message: "Task successfully deleted",
-    });
-  } catch (error) {
-    res.status(500).json({
-      message: "Task not deleted there is some error",
-      error: error.message,
-    });
+
+const deleteTaskId = asyncHandler(async (req, res) => {
+  const deleteTask = await Task.findByIdAndDelete(req.params.id);
+
+  if (!deleteTask) {
+    throw new AppError("Task not found", 404);
   }
-};
+
+  res.status(200).json({
+    success: true,
+    message: "Task successfully deleted",
+  });
+});
+
+
 
 module.exports = {
   createTask,
