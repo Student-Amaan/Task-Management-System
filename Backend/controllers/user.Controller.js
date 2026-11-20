@@ -60,7 +60,7 @@ const loginUser = asyncHandler(async (req, res) => {
   }
 
   const token = jwt.sign({ id: user._id }, process.env.JWT_SECREAT, {
-    expiresIn: 7,
+    expiresIn: "7d",
   });
 
   res.status(200).json({
@@ -75,7 +75,24 @@ const loginUser = asyncHandler(async (req, res) => {
   })
 });
 
+
+const getProfile = asyncHandler(async (req, res) => {
+  const user = await User.findById(req.user.id).select("-password");
+
+  if (!user) {
+    throw new AppError("User not found", 404);
+  }
+
+  res.status(200).json({
+    success: true,
+    message: "Profile fetched successfully",
+    data: user,
+  });
+});
+
+
 module.exports = {
   registerUser,
-  loginUser
+  loginUser,
+  getProfile
 };
