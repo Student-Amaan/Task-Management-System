@@ -1,24 +1,28 @@
-const { default: mongoose } = require("mongoose");
+const mongoose = require("mongoose");
 
 const userSchema = new mongoose.Schema(
   {
     name: {
       type: String,
-      required: [true, "name is required"],
+      required: [true, "Name is required"],
       trim: true,
     },
+
     email: {
       type: String,
-      required: [true, "email is required"],
+      required: [true, "Email is required"],
       unique: true,
       lowercase: true,
       trim: true,
     },
+
     password: {
       type: String,
-      unique: [true, "password is required"],
+      required: [true, "Password is required"],
       minlength: 6,
+      select: false,
     },
+
     role: {
       type: String,
       enum: ["admin", "user"],
@@ -30,5 +34,6 @@ const userSchema = new mongoose.Schema(
   },
 );
 
-const user = mongoose.model("User", userSchema);
-module.exports = user;
+const User = mongoose.model("User", userSchema);
+
+module.exports = User;

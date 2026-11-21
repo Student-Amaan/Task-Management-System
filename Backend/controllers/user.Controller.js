@@ -4,7 +4,11 @@ const bcrypt = require("bcryptjs");
 const AppError = require("../utils/AppError");
 const jwt = require("jsonwebtoken");
 
+
 const registerUser = asyncHandler(async (req, res, next) => {
+  if(!req.body){
+    throw new AppError("Please fill all the required fields", 400)
+  }
   const { name, email, password } = req.body;
 
   if (!name || !email || !password) {
@@ -30,15 +34,13 @@ const registerUser = asyncHandler(async (req, res, next) => {
   res.status(201).json({
     success: true,
     message: "User created sucessfully",
-    data: {
-      id: newUser._id,
-      name: newUser.name,
-      email: newUser.email,
-    },
+    data: newUser,
   });
 });
-
 const loginUser = asyncHandler(async (req, res) => {
+  if(!req.body){
+    throw new AppError("Please fill the required fileds", 400)
+  }
   const { email, password } = req.body;
 
   if (!email || !password) {
@@ -47,7 +49,7 @@ const loginUser = asyncHandler(async (req, res) => {
 
   const user = await User.findOne({
     email: email.toLowerCase().trim(),
-  });
+  }).select("+password");
 
   if (!user) {
     throw new AppError("invalid email or password", 401);
@@ -60,8 +62,10 @@ const loginUser = asyncHandler(async (req, res) => {
   }
 
   const token = jwt.sign({ id: user._id }, process.env.JWT_SECREAT, {
-    expiresIn: "7d",
+    expiresIn: "7m",
   });
+
+  res.setHeader("Authorization", `Bearer ${token}`);
 
   res.status(200).json({
     success : true,

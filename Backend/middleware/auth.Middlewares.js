@@ -9,7 +9,7 @@ const protectJwt = asyncHandler(async(req,res,next) => {
   if (!authHeader || !authHeader.startsWith("Bearer")) {
     throw new AppError("Not authorized token messing", 401);
   }
-
+  console.log(authHeader.split(" "))
   const token = authHeader.split(" ")[1]
 
   const decode = jwt.verify(token, process.env.JWT_SECREAT);
