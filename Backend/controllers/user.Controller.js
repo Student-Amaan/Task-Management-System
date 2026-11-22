@@ -62,7 +62,7 @@ const loginUser = asyncHandler(async (req, res) => {
   }
 
   const token = jwt.sign({ id: user._id }, process.env.JWT_SECREAT, {
-    expiresIn: "7m",
+    expiresIn: "7d",
   });
 
   res.setHeader("Authorization", `Bearer ${token}`);
