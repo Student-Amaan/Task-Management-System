@@ -8,13 +8,17 @@ const {
 
 const { protectJwt } = require("../middleware/auth.Middlewares");
 const { authorize } = require("../middleware/role.Middlewares");
+const { registerValidator, loginValidator } = require("../validators/user.Validator");
+const validateRequest = require("../middleware/validateRequest");
+
+
 
 
 
 const router = express.Router();
 
-router.post("/register", registerUser);
-router.post("/login", loginUser);
+router.post("/register", registerValidator, validateRequest, registerUser);
+router.post("/login", loginValidator ,validateRequest,  loginUser);
 router.get("/profile", protectJwt, getProfile);
 
 router.get("/admin", protectJwt , authorize('admin'), (req,res) => {
