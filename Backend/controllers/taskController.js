@@ -1,7 +1,18 @@
+const redisClient = require("../config/redis");
 const Task = require("../models/TaskModels");
 const AppError = require("../utils/AppError");
 const asyncHandler = require("express-async-handler");
 
+const clearUserTaskCache = async (userId) => {
+  const pattern = `tasks:${userId}:*`;
+
+  for await (const key of redisClient.scanIterator({
+    MATCH: pattern,
+    COUNT: 100,
+  })) {
+    await redisClient.del(key);
+  }
+};
 
 const createTask = asyncHandler(async (req, res) => {
   const { title, description, priority, status, dueDate } = req.body;
@@ -27,13 +38,41 @@ const createTask = asyncHandler(async (req, res) => {
 });
 
 
-
 const getAllTasks = asyncHandler(async (req, res) => {
-  // 1. Search and Filtering
   const { status, sort } = req.query;
 
-  // Always filter by logged-in user
-  let filter = {
+  // 1. Pagination
+  const page = Math.max(1, Number(req.query.page) || 1);
+
+  const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 5));
+
+  // 2. Create user-specific cache key
+  const userId = req.user._id.toString();
+
+  const cacheKey = `tasks:${userId}:${JSON.stringify({
+    status: status || "all",
+    sort: sort || "newest",
+    page,
+    limit,
+  })}`;
+
+  // 3. Check Redis Cache
+  const cachedTasks = await redisClient.get(cacheKey);
+
+  console.log("Redis Ready:", redisClient.isReady);
+  console.log("Generated Key:", cacheKey);
+  console.log("Cached Data:", cachedTasks ? "FOUND" : "NOT FOUND");
+
+  if (cachedTasks) {
+    console.log("Redis Cache HIT");
+
+    return res.status(200).json(JSON.parse(cachedTasks));
+  }
+
+  console.log("Redis Cache MISS");
+
+  // 4. MongoDB Filtering
+  const filter = {
     user: req.user._id,
   };
 
@@ -41,8 +80,8 @@ const getAllTasks = asyncHandler(async (req, res) => {
     filter.status = status;
   }
 
-  // 2. Sorting
-  let sortAt = {};
+  // 5. Sorting
+  const sortAt = {};
 
   if (sort === "oldest") {
     sortAt.createdAt = 1;
@@ -50,20 +89,17 @@ const getAllTasks = asyncHandler(async (req, res) => {
     sortAt.createdAt = -1;
   }
 
-  // 3. Pagination
-  const page = Math.max(1, Number(req.query.page) || 1);
-  const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 5));
+  // 6. Fetch Tasks from MongoDB
+  const tasks = await Task.find(filter)
+    .sort(sortAt)
+    .skip((page - 1) * limit)
+    .limit(limit);
 
-  const skip = (page - 1) * limit;
-
-  // 4. Get Tasks
-  const tasks = await Task.find(filter).sort(sortAt).skip(skip).limit(limit);
-
-  // 5. Count Total Tasks
+  // 7. Count Total Tasks
   const totalTasks = await Task.countDocuments(filter);
 
-  // 6. Response
-  res.status(200).json({
+  // 8. Prepare Response
+  const responseData = {
     success: true,
     message: "Tasks fetched successfully",
     count: tasks.length,
@@ -71,13 +107,35 @@ const getAllTasks = asyncHandler(async (req, res) => {
     totalPages: Math.ceil(totalTasks / limit),
     totalTasks,
     tasks,
-  });
+  };
+
+  // 9. Save Response in Redis for 60 seconds
+ try {
+   const result = await redisClient.setEx(
+     cacheKey,
+     300,
+     JSON.stringify(responseData),
+   );
+   const verifyCache = await redisClient.get(cacheKey);
+
+   console.log("Cache Verification:", verifyCache ? "SUCCESS" : "FAILED");
+
+   console.log("Redis SET Result:", result);
+   console.log("Cache Key:", cacheKey);
+ } catch (error) {
+   console.log("Redis SET Error:", error);
+ }
+
+  // 10. Send Response
+  res.status(200).json(responseData);
 });
 
 
 const getTaskById = asyncHandler(async (req, res) => {
-  const task = await Task.findById(req.params.id);
-
+ const task = await Task.findOne({
+   _id: req.params.id,
+   user: req.user._id,
+ });
   if (!task) {
     throw new AppError("Task not found", 404);
   }
@@ -88,7 +146,6 @@ const getTaskById = asyncHandler(async (req, res) => {
     task,
   });
 });
-
 
 const updateTask = asyncHandler(async (req, res) => {
   const { title, description, status, priority, dueDate } = req.body;
@@ -122,9 +179,6 @@ const updateTask = asyncHandler(async (req, res) => {
   });
 });
 
-
-
-
 const deleteTaskId = asyncHandler(async (req, res) => {
   const deleteTask = await Task.findOneAndDelete({
     _id: req.params.id,
@@ -141,9 +195,6 @@ const deleteTaskId = asyncHandler(async (req, res) => {
     task: deleteTask,
   });
 });
-
-
-
 
 module.exports = {
   createTask,

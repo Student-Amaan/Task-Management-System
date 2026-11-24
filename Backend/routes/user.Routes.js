@@ -21,7 +21,7 @@ router.post("/register", registerValidator, validateRequest, registerUser);
 router.post("/login", loginValidator ,validateRequest,  loginUser);
 router.get("/profile", protectJwt, getProfile);
 
-router.get("/admin", protectJwt , authorize('admin'), (req,res) => {
+router.get("/admin", protectJwt , authorize('user'), (req,res) => {
   res.status(200).json({
     success : true,
     message : "welcome to admain dashboard"
