@@ -35,6 +35,8 @@ const registerValidator = [
 
 const loginValidator = [
   body("email")
+    .isString()
+    .withMessage("Email must be a string")
     .trim()
     .notEmpty()
     .withMessage("Email is required")
@@ -43,6 +45,8 @@ const loginValidator = [
     .normalizeEmail(),
 
   body("password")
+    .isString()
+    .withMessage("Password must be a string")
     .notEmpty()
     .withMessage("Password is required")
     .isLength({ min: 8 })

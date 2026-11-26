@@ -2,17 +2,9 @@ const redisClient = require("../config/redis");
 const Task = require("../models/TaskModels");
 const AppError = require("../utils/AppError");
 const asyncHandler = require("express-async-handler");
+const { clearUserTaskCache } = require("../utils/cacha");
 
-const clearUserTaskCache = async (userId) => {
-  const pattern = `tasks:${userId}:*`;
 
-  for await (const key of redisClient.scanIterator({
-    MATCH: pattern,
-    COUNT: 100,
-  })) {
-    await redisClient.del(key);
-  }
-};
 
 const createTask = asyncHandler(async (req, res) => {
   const { title, description, priority, status, dueDate } = req.body;
@@ -29,6 +21,8 @@ const createTask = asyncHandler(async (req, res) => {
     dueDate,
     user: req.user._id,
   });
+
+  await clearUserTaskCache(req.user._id)
 
   res.status(201).json({
     success: true,
@@ -58,18 +52,16 @@ const getAllTasks = asyncHandler(async (req, res) => {
 
   // 3. Check Redis Cache
   const cachedTasks = await redisClient.get(cacheKey);
-
-  console.log("Redis Ready:", redisClient.isReady);
-  console.log("Generated Key:", cacheKey);
-  console.log("Cached Data:", cachedTasks ? "FOUND" : "NOT FOUND");
+  console.log(cachedTasks)
+ 
 
   if (cachedTasks) {
-    console.log("Redis Cache HIT");
+    
 
     return res.status(200).json(JSON.parse(cachedTasks));
   }
 
-  console.log("Redis Cache MISS");
+  
 
   // 4. MongoDB Filtering
   const filter = {
@@ -147,43 +139,76 @@ const getTaskById = asyncHandler(async (req, res) => {
   });
 });
 
-const updateTask = asyncHandler(async (req, res) => {
-  const { title, description, status, priority, dueDate } = req.body;
 
-  const updateTaskId = await Task.findOneAndUpdate(
+const updateTask = asyncHandler(async (req, res) => {
+  // 1. Allowed fields
+  const allowedFields = [
+    "title",
+    "description",
+    "status",
+    "priority",
+    "dueDate",
+  ];
+
+  // 2. Check unauthorized fields
+  const invalidFields = Object.keys(req.body).filter(
+    (field) => !allowedFields.includes(field),
+  );
+
+  if (invalidFields.length > 0) {
+    throw new AppError(`Invalid fields: ${invalidFields.join(", ")}`, 400);
+  }
+
+  // 3. Prepare safe update data
+  const updateData = {};
+
+  allowedFields.forEach((field) => {
+    if (req.body[field] !== undefined) {
+      updateData[field] = req.body[field];
+    }
+  });
+
+  // 4. Check empty update
+  if (Object.keys(updateData).length === 0) {
+    throw new AppError("Please provide fields to update", 400);
+  }
+
+  // 5. Update task with ownership verification
+  const updatedTask = await Task.findOneAndUpdate(
     {
       _id: req.params.id,
       user: req.user._id,
     },
-    {
-      title,
-      description,
-      status,
-      priority,
-      dueDate,
-    },
+    updateData,
     {
       new: true,
       runValidators: true,
     },
   );
 
-  if (!updateTaskId) {
+  // 6. Check task existence
+  if (!updatedTask) {
     throw new AppError("Task not found or you are not authorized", 404);
   }
 
+  // 7. Clear Redis cache
+  await clearUserTaskCache(req.user._id.toString());
+
+  // 8. Send response
   res.status(200).json({
     success: true,
     message: "Task updated successfully",
-    task: updateTaskId,
+    task: updatedTask,
   });
 });
 
+
 const deleteTaskId = asyncHandler(async (req, res) => {
-  const deleteTask = await Task.findOneAndDelete({
-    _id: req.params.id,
-    user: req.user._id,
-  });
+  const deleteTask = await Task.findOneAndDelete(
+     req.params.id,
+    
+  );
+  await clearUserTaskCache(req.user._id);
 
   if (!deleteTask) {
     throw new AppError("Task not found or you are not authorized", 404);

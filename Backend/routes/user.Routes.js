@@ -8,24 +8,23 @@ const {
 
 const { protectJwt } = require("../middleware/auth.Middlewares");
 const { authorize } = require("../middleware/role.Middlewares");
-const { registerValidator, loginValidator } = require("../validators/user.Validator");
+const {
+  registerValidator,
+  loginValidator,
+} = require("../validators/user.Validator");
 const validateRequest = require("../middleware/validateRequest");
-
-
-
-
 
 const router = express.Router();
 
 router.post("/register", registerValidator, validateRequest, registerUser);
-router.post("/login", loginValidator ,validateRequest,  loginUser);
+router.post("/login", loginValidator, validateRequest, loginUser);
 router.get("/profile", protectJwt, getProfile);
 
-router.get("/admin", protectJwt , authorize('user'), (req,res) => {
+router.get("/admin", protectJwt, authorize("user"), (req, res) => {
   res.status(200).json({
-    success : true,
-    message : "welcome to admain dashboard"
-  })
-} )
+    success: true,
+    message: "welcome to admain dashboard",
+  });
+});
 
 module.exports = router;
